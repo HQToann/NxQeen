@@ -8,15 +8,13 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 20px; color: #333; }
         .container { background-color: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; max-width: 900px; width: 100%; }
-        h1 { margin-bottom: 20px; color: #2c3e50; }
+        h1 { margin-bottom: 20px; color: #2c3e50; font-size: 24px; }
         
-        /* Bảng điều khiển log */
         .log-panel { background: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: left; min-height: 100px; display: flex; flex-direction: column; justify-content: center; }
         .func-name { font-family: monospace; color: #f1c40f; font-size: 16px; margin-bottom: 5px; font-weight: bold; }
         .log-message { font-size: 16px; line-height: 1.5; }
         
-        /* Các nút điều khiển */
-        .controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 20px; }
+        .controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 15px; }
         button { padding: 10px 15px; font-size: 15px; cursor: pointer; border: none; border-radius: 6px; background-color: #3498db; color: white; transition: background 0.2s; font-weight: bold; }
         button:hover { background-color: #2980b9; }
         button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
@@ -25,17 +23,19 @@
         .btn-skip { background-color: #9b59b6; }
         .btn-skip:hover { background-color: #8e44ad; }
         
-        .status { font-size: 16px; font-weight: bold; margin-top: 10px; color: #7f8c8d; }
+        /* Bổ sung thanh trượt tốc độ */
+        .speed-control { margin-bottom: 20px; font-weight: bold; color: #7f8c8d; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+        .speed-control input { width: 200px; cursor: pointer; }
 
-        /* Bàn cờ */
+        .status { font-size: 16px; font-weight: bold; margin-bottom: 15px; color: #7f8c8d; }
+
         .board { display: grid; grid-template-columns: repeat(8, 60px); grid-template-rows: repeat(8, 60px); border: 4px solid #34495e; margin: 0 auto; width: fit-content; }
         .square { width: 60px; height: 60px; display: flex; justify-content: center; align-items: center; font-size: 40px; position: relative; }
         .white { background-color: #f0d9b5; }
         .black { background-color: #b58863; }
         
-        /* Các trạng thái của quân hậu trên bàn cờ */
         .queen { color: #2c3e50; text-shadow: 2px 2px 4px rgba(0,0,0,0.4); }
-        .queen-checking { color: rgba(44, 62, 80, 0.4); /* Hậu mờ đang thử */ }
+        .queen-checking { color: rgba(44, 62, 80, 0.4); }
         .bg-checking { background-color: #f39c12 !important; }
         .bg-invalid { background-color: #e74c3c !important; }
         .bg-valid { background-color: #2ecc71 !important; }
@@ -58,14 +58,17 @@
             <button id="skipSolutionBtn" class="btn-skip">⏭ Đến lời giải tiếp theo</button>
         </div>
         
+        <div class="speed-control">
+            <label for="speedSlider">Thời gian chờ: <span id="speedValue">800</span> ms</label>
+            <input type="range" id="speedSlider" min="100" max="2000" step="100" value="800">
+        </div>
+
         <div class="status" id="stepInfo">Bước: 0 / 0</div>
-        <br>
 
         <div class="board" id="chessboard"></div>
     </div>
 
     <script>
-        // --- LOGIC SINH BƯỚC ĐI (Ghi sổ) ---
         let steps = [];
         let solutionsCount = 0;
 
@@ -73,10 +76,10 @@
             steps.push({
                 func: func,
                 msg: msg,
-                board: [...board], // Lưu lại bản sao của mảng vị trí lúc này
+                board: [...board],
                 tempRow: tempRow,
                 tempCol: tempCol,
-                state: state // 'checking', 'invalid', 'valid', 'placed', 'backtrack', 'solution'
+                state: state
             });
         }
 
@@ -99,7 +102,7 @@
         }
 
         function solve8QueensUtil(board, col) {
-            logStep('solve_8queens_util(board, col, solutions)', `Đang xử lý cột ${col}`, board, -1, col, 'normal');
+            logStep('solve_8queens_util', `Đang xử lý cột ${col}`, board, -1, col, 'normal');
             
             if (col === 8) {
                 solutionsCount++;
@@ -109,12 +112,11 @@
 
             for (let row = 0; row < 8; row++) {
                 if (isSafe(board, row, col)) {
-                    board[col] = row; // Đặt hậu
+                    board[col] = row;
                     logStep('solve_8queens_util', `Tạm đặt quân hậu tại Hàng ${row}, Cột ${col}. Tiến sang cột ${col + 1} (Gọi đệ quy).`, board, -1, -1, 'placed');
                     
                     solve8QueensUtil(board, col + 1);
                     
-                    // Xử lý khi quay lui (Backtracking)
                     board[col] = -1;
                     logStep('solve_8queens_util (Backtracking)', `Quay lui (Backtrack) từ cột ${col + 1} về cột ${col}. Rút quân hậu ở Hàng ${row} ra để thử hàng khác.`, board, row, col, 'backtrack');
                 }
@@ -124,13 +126,13 @@
             }
         }
 
-        // Chạy thuật toán 1 lần ngay khi tải trang để lưu toàn bộ mảng steps
         let initialBoard = Array(8).fill(-1);
         solve8QueensUtil(initialBoard, 0);
 
-        // --- LOGIC ĐIỀU KHIỂN GIAO DIỆN ---
+        // --- GIAO DIỆN & TỐC ĐỘ ---
         let currentStep = 0;
         let autoPlayInterval = null;
+        let playSpeed = 800; // Tốc độ mặc định 800ms
 
         const boardEl = document.getElementById('chessboard');
         const funcNameEl = document.getElementById('funcName');
@@ -140,6 +142,21 @@
         const nextBtn = document.getElementById('nextBtn');
         const autoPlayBtn = document.getElementById('autoPlayBtn');
         const skipSolutionBtn = document.getElementById('skipSolutionBtn');
+        
+        // Cập nhật tốc độ từ thanh trượt
+        const speedSlider = document.getElementById('speedSlider');
+        const speedValue = document.getElementById('speedValue');
+        
+        speedSlider.addEventListener('input', (e) => {
+            playSpeed = parseInt(e.target.value);
+            speedValue.textContent = playSpeed;
+            
+            // Cập nhật lại tốc độ ngay lập tức nếu đang chạy auto
+            if (autoPlayInterval) {
+                clearInterval(autoPlayInterval);
+                autoPlayInterval = setInterval(runAutoPlayStep, playSpeed);
+            }
+        });
 
         function drawBoard(stepData) {
             boardEl.innerHTML = '';
@@ -149,13 +166,11 @@
                     square.classList.add('square');
                     square.classList.add((row + col) % 2 === 0 ? 'white' : 'black');
                     
-                    // Vẽ các quân hậu đã đặt chắc chắn từ mảng board
                     if (stepData.board[col] === row) {
                         square.innerHTML = '♛';
                         square.classList.add('queen');
                     }
                     
-                    // Hiệu ứng màu sắc khi hàm is_safe đang kiểm tra nghiệm
                     if (row === stepData.tempRow && col === stepData.tempCol) {
                         if (stepData.state === 'checking') {
                             square.classList.add('bg-checking');
@@ -170,10 +185,9 @@
                             square.innerHTML = '♛';
                             square.classList.add('queen-checking');
                         } else if (stepData.state === 'backtrack') {
-                            square.classList.add('bg-invalid'); // Chớp đỏ khi rút quân
+                            square.classList.add('bg-invalid');
                         }
                     }
-                    
                     boardEl.appendChild(square);
                 }
             }
@@ -181,34 +195,34 @@
 
         function updateView() {
             const stepData = steps[currentStep];
-            
-            // Cập nhật text
             funcNameEl.textContent = `> ${stepData.func}`;
             logMsgEl.textContent = stepData.msg;
             stepInfoEl.textContent = `Bước thực thi: ${currentStep + 1} / ${steps.length}`;
-            
-            // Vẽ lại bàn cờ
             drawBoard(stepData);
             
-            // Cập nhật nút
             prevBtn.disabled = currentStep === 0;
             nextBtn.disabled = currentStep === steps.length - 1;
         }
 
-        // Lắng nghe sự kiện click
         prevBtn.addEventListener('click', () => {
-            if (currentStep > 0) {
-                currentStep--;
-                updateView();
-            }
+            if (currentStep > 0) { currentStep--; updateView(); }
         });
 
         nextBtn.addEventListener('click', () => {
+            if (currentStep < steps.length - 1) { currentStep++; updateView(); }
+        });
+
+        function runAutoPlayStep() {
             if (currentStep < steps.length - 1) {
                 currentStep++;
                 updateView();
+                if (steps[currentStep].state === 'solution') {
+                    autoPlayBtn.click(); // Dừng khi gặp solution
+                }
+            } else {
+                autoPlayBtn.click();
             }
-        });
+        }
 
         autoPlayBtn.addEventListener('click', () => {
             if (autoPlayInterval) {
@@ -219,23 +233,11 @@
             } else {
                 autoPlayBtn.innerHTML = '⏸ Dừng auto';
                 autoPlayBtn.style.backgroundColor = '#e67e22';
-                autoPlayInterval = setInterval(() => {
-                    if (currentStep < steps.length - 1) {
-                        currentStep++;
-                        updateView();
-                        // Nếu gặp điểm tìm thấy lời giải thì tạm dừng để user kịp xem
-                        if (steps[currentStep].state === 'solution') {
-                            autoPlayBtn.click(); 
-                        }
-                    } else {
-                        autoPlayBtn.click();
-                    }
-                }, 800); // Tốc độ chạy: 150ms / bước
+                autoPlayInterval = setInterval(runAutoPlayStep, playSpeed); // Chạy với biến tốc độ
             }
         });
 
         skipSolutionBtn.addEventListener('click', () => {
-            // Tìm bước tiếp theo có trạng thái 'solution'
             for (let i = currentStep + 1; i < steps.length; i++) {
                 if (steps[i].state === 'solution') {
                     currentStep = i;
@@ -243,10 +245,9 @@
                     return;
                 }
             }
-            alert("Đã đến lời giải cuối cùng hoặc trang thái kết thúc!");
+            alert("Đã đến lời giải cuối cùng hoặc trạng thái kết thúc!");
         });
 
-        // Khởi động giao diện lần đầu
         updateView();
     </script>
 </body>
