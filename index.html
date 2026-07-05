@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mô Phỏng Bước Đi - Bài Toán 8 Quân Hậu</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 20px; color: #333; }
+        .container { background-color: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; max-width: 900px; width: 100%; }
+        h1 { margin-bottom: 20px; color: #2c3e50; }
+        
+        /* Bảng điều khiển log */
+        .log-panel { background: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: left; min-height: 100px; display: flex; flex-direction: column; justify-content: center; }
+        .func-name { font-family: monospace; color: #f1c40f; font-size: 16px; margin-bottom: 5px; font-weight: bold; }
+        .log-message { font-size: 16px; line-height: 1.5; }
+        
+        /* Các nút điều khiển */
+        .controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-bottom: 20px; }
+        button { padding: 10px 15px; font-size: 15px; cursor: pointer; border: none; border-radius: 6px; background-color: #3498db; color: white; transition: background 0.2s; font-weight: bold; }
+        button:hover { background-color: #2980b9; }
+        button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+        .btn-play { background-color: #2ecc71; }
+        .btn-play:hover { background-color: #27ae60; }
+        .btn-skip { background-color: #9b59b6; }
+        .btn-skip:hover { background-color: #8e44ad; }
+        
+        .status { font-size: 16px; font-weight: bold; margin-top: 10px; color: #7f8c8d; }
+
+        /* Bàn cờ */
+        .board { display: grid; grid-template-columns: repeat(8, 60px); grid-template-rows: repeat(8, 60px); border: 4px solid #34495e; margin: 0 auto; width: fit-content; }
+        .square { width: 60px; height: 60px; display: flex; justify-content: center; align-items: center; font-size: 40px; position: relative; }
+        .white { background-color: #f0d9b5; }
+        .black { background-color: #b58863; }
+        
+        /* Các trạng thái của quân hậu trên bàn cờ */
+        .queen { color: #2c3e50; text-shadow: 2px 2px 4px rgba(0,0,0,0.4); }
+        .queen-checking { color: rgba(44, 62, 80, 0.4); /* Hậu mờ đang thử */ }
+        .bg-checking { background-color: #f39c12 !important; }
+        .bg-invalid { background-color: #e74c3c !important; }
+        .bg-valid { background-color: #2ecc71 !important; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Mô Phỏng Luồng Xử Lý (Backtracking)</h1>
+        
+        <div class="log-panel">
+            <div class="func-name" id="funcName">> Đang khởi tạo...</div>
+            <div class="log-message" id="logMessage">Vui lòng đợi thuật toán nạp dữ liệu.</div>
+        </div>
+
+        <div class="controls">
+            <button id="prevBtn">❮ Trước</button>
+            <button id="nextBtn">Tiếp ❯</button>
+            <button id="autoPlayBtn" class="btn-play">▶ Chạy tự động</button>
+            <button id="skipSolutionBtn" class="btn-skip">⏭ Đến lời giải tiếp theo</button>
+        </div>
+        
+        <div class="status" id="stepInfo">Bước: 0 / 0</div>
+        <br>
+
+        <div class="board" id="chessboard"></div>
+    </div>
+
+    <script>
+        // --- LOGIC SINH BƯỚC ĐI (Ghi sổ) ---
+        let steps = [];
+        let solutionsCount = 0;
+
+        function logStep(func, msg, board, tempRow, tempCol, state) {
+            steps.push({
+                func: func,
+                msg: msg,
+                board: [...board], // Lưu lại bản sao của mảng vị trí lúc này
+                tempRow: tempRow,
+                tempCol: tempCol,
+                state: state // 'checking', 'invalid', 'valid', 'placed', 'backtrack', 'solution'
+            });
+        }
+
+        function isSafe(board, row, col) {
+            logStep('is_safe(board, row, col)', `Kiểm tra an toàn tại Hàng ${row}, Cột ${col}...`, board, row, col, 'checking');
+            
+            for (let prevCol = 0; prevCol < col; prevCol++) {
+                let prevRow = board[prevCol];
+                if (prevRow === row) {
+                    logStep('is_safe(board, row, col)', `❌ KHÔNG AN TOÀN: Bị đe dọa ngang bởi quân hậu ở cột ${prevCol}.`, board, row, col, 'invalid');
+                    return false;
+                }
+                if (Math.abs(prevRow - row) === Math.abs(prevCol - col)) {
+                    logStep('is_safe(board, row, col)', `❌ KHÔNG AN TOÀN: Bị đe dọa chéo bởi quân hậu ở cột ${prevCol}.`, board, row, col, 'invalid');
+                    return false;
+                }
+            }
+            logStep('is_safe(board, row, col)', `✅ Hàng ${row}, Cột ${col} an toàn.`, board, row, col, 'valid');
+            return true;
+        }
+
+        function solve8QueensUtil(board, col) {
+            logStep('solve_8queens_util(board, col, solutions)', `Đang xử lý cột ${col}`, board, -1, col, 'normal');
+            
+            if (col === 8) {
+                solutionsCount++;
+                logStep('solve_8queens_util', `🎉 TÌM THẤY LỜI GIẢI THỨ ${solutionsCount}. Lưu mảng vị trí!`, board, -1, -1, 'solution');
+                return;
+            }
+
+            for (let row = 0; row < 8; row++) {
+                if (isSafe(board, row, col)) {
+                    board[col] = row; // Đặt hậu
+                    logStep('solve_8queens_util', `Tạm đặt quân hậu tại Hàng ${row}, Cột ${col}. Tiến sang cột ${col + 1} (Gọi đệ quy).`, board, -1, -1, 'placed');
+                    
+                    solve8QueensUtil(board, col + 1);
+                    
+                    // Xử lý khi quay lui (Backtracking)
+                    board[col] = -1;
+                    logStep('solve_8queens_util (Backtracking)', `Quay lui (Backtrack) từ cột ${col + 1} về cột ${col}. Rút quân hậu ở Hàng ${row} ra để thử hàng khác.`, board, row, col, 'backtrack');
+                }
+            }
+            if(col < 8) {
+                logStep('solve_8queens_util', `Cột ${col} đã hết hàng hợp lệ để thử. Bắt buộc phải quay lui về cột ${col - 1}.`, board, -1, col, 'normal');
+            }
+        }
+
+        // Chạy thuật toán 1 lần ngay khi tải trang để lưu toàn bộ mảng steps
+        let initialBoard = Array(8).fill(-1);
+        solve8QueensUtil(initialBoard, 0);
+
+        // --- LOGIC ĐIỀU KHIỂN GIAO DIỆN ---
+        let currentStep = 0;
+        let autoPlayInterval = null;
+
+        const boardEl = document.getElementById('chessboard');
+        const funcNameEl = document.getElementById('funcName');
+        const logMsgEl = document.getElementById('logMessage');
+        const stepInfoEl = document.getElementById('stepInfo');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const autoPlayBtn = document.getElementById('autoPlayBtn');
+        const skipSolutionBtn = document.getElementById('skipSolutionBtn');
+
+        function drawBoard(stepData) {
+            boardEl.innerHTML = '';
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const square = document.createElement('div');
+                    square.classList.add('square');
+                    square.classList.add((row + col) % 2 === 0 ? 'white' : 'black');
+                    
+                    // Vẽ các quân hậu đã đặt chắc chắn từ mảng board
+                    if (stepData.board[col] === row) {
+                        square.innerHTML = '♛';
+                        square.classList.add('queen');
+                    }
+                    
+                    // Hiệu ứng màu sắc khi hàm is_safe đang kiểm tra nghiệm
+                    if (row === stepData.tempRow && col === stepData.tempCol) {
+                        if (stepData.state === 'checking') {
+                            square.classList.add('bg-checking');
+                            square.innerHTML = '♛';
+                            square.classList.add('queen-checking');
+                        } else if (stepData.state === 'invalid') {
+                            square.classList.add('bg-invalid');
+                            square.innerHTML = '♛';
+                            square.classList.add('queen-checking');
+                        } else if (stepData.state === 'valid') {
+                            square.classList.add('bg-valid');
+                            square.innerHTML = '♛';
+                            square.classList.add('queen-checking');
+                        } else if (stepData.state === 'backtrack') {
+                            square.classList.add('bg-invalid'); // Chớp đỏ khi rút quân
+                        }
+                    }
+                    
+                    boardEl.appendChild(square);
+                }
+            }
+        }
+
+        function updateView() {
+            const stepData = steps[currentStep];
+            
+            // Cập nhật text
+            funcNameEl.textContent = `> ${stepData.func}`;
+            logMsgEl.textContent = stepData.msg;
+            stepInfoEl.textContent = `Bước thực thi: ${currentStep + 1} / ${steps.length}`;
+            
+            // Vẽ lại bàn cờ
+            drawBoard(stepData);
+            
+            // Cập nhật nút
+            prevBtn.disabled = currentStep === 0;
+            nextBtn.disabled = currentStep === steps.length - 1;
+        }
+
+        // Lắng nghe sự kiện click
+        prevBtn.addEventListener('click', () => {
+            if (currentStep > 0) {
+                currentStep--;
+                updateView();
+            }
+        });
+
+        nextBtn.addEventListener('click', () => {
+            if (currentStep < steps.length - 1) {
+                currentStep++;
+                updateView();
+            }
+        });
+
+        autoPlayBtn.addEventListener('click', () => {
+            if (autoPlayInterval) {
+                clearInterval(autoPlayInterval);
+                autoPlayInterval = null;
+                autoPlayBtn.innerHTML = '▶ Chạy tự động';
+                autoPlayBtn.style.backgroundColor = '#2ecc71';
+            } else {
+                autoPlayBtn.innerHTML = '⏸ Dừng auto';
+                autoPlayBtn.style.backgroundColor = '#e67e22';
+                autoPlayInterval = setInterval(() => {
+                    if (currentStep < steps.length - 1) {
+                        currentStep++;
+                        updateView();
+                        // Nếu gặp điểm tìm thấy lời giải thì tạm dừng để user kịp xem
+                        if (steps[currentStep].state === 'solution') {
+                            autoPlayBtn.click(); 
+                        }
+                    } else {
+                        autoPlayBtn.click();
+                    }
+                }, 800); // Tốc độ chạy: 150ms / bước
+            }
+        });
+
+        skipSolutionBtn.addEventListener('click', () => {
+            // Tìm bước tiếp theo có trạng thái 'solution'
+            for (let i = currentStep + 1; i < steps.length; i++) {
+                if (steps[i].state === 'solution') {
+                    currentStep = i;
+                    updateView();
+                    return;
+                }
+            }
+            alert("Đã đến lời giải cuối cùng hoặc trang thái kết thúc!");
+        });
+
+        // Khởi động giao diện lần đầu
+        updateView();
+    </script>
+</body>
+</html>
